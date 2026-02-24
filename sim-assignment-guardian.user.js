@@ -1,9 +1,11 @@
 // ==UserScript==
-// @name         SIM GUARDIAN giovcris
-// @namespace    https://tampermonkey.net/
-// @version      1.3.0
+// @name         SIM Assignment Guardian
+// @namespace    roc-mx
+// @version      1.3.1
 // @description  SIM SLA guard: within 15m set Status to Work In Progress AND set Assignee to a login (not roc-team). Shows Need Status/Need Login/Need Action with green/yellow/orange/red by time. ONLY notifies when TOP (newest) row changes.
-// @match        *://*/*
+// @match        https://t.corp.amazon.com/*
+// @updateURL    https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
+// @downloadURL  https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
 // @grant        GM_addStyle
 // ==/UserScript==
 
