@@ -7,6 +7,8 @@
 // @updateURL    https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
 // @downloadURL  https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
 // @grant        GM_addStyle
+// @supportURL https://github.com/giovcris411/roc-userscripts
+// @author Giovcris ROC
 // ==/UserScript==
 
 (() => {
