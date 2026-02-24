@@ -1,8 +1,9 @@
 // ==UserScript==
 // @name         PARAGON Guardian giovcris
 // @namespace    roc-mx
-// @version      1.1.3
+// @version      1.1.4
 // @description  Paragon SLA guard: Created → Last outbound + visual radar.
+// @match        https://paragon-*.amazon.com/*
 // @match        https://paragon-na.amazon.com/*
 // @match        https://paragon-rta.amazon.com/*
 // @updateURL    https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/paragon-assignment-guardian.user.js
