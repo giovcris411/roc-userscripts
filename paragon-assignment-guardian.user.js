@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PARAGON Guardian giovcris
 // @namespace    roc-mx
-// @version      1.1.4
+// @version      1.1.5
 // @description  Paragon SLA guard: Created → Last outbound + visual radar.
 // @match        https://paragon-*.amazon.com/*
 // @match        https://paragon-na.amazon.com/*
@@ -33,7 +33,7 @@
       LAST_OUTBOUND: ["Last outbound", "Last Outbound", "Outbound", "Last response", "Last Response"],
     },
 
-    REQUIRE_TABLE_HINT: true,
+    REQUIRE_TABLE_HINT: false,
     TABLE_HINT_TEXT: "Export Results to CSV",
 
     // Only new-case notification
