@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         SIM Guardian giovcris
 // @namespace    roc-mx
-// @version      1.3.5
-// @description  SIM SLA guard: within 15m set Status to Work In Progress AND set Assignee to a login (not roc-team). Shows Need Status/Need Login/Need Action with green/yellow/orange/red by time. ONLY notifies when TOP (newest) row changes.
+// @version      1.6.0
+// @description  SIM SLA guard: Etiquetas bajo Short ID solo con contorno y emojis al final.
 // @match        https://*.corp.amazon.com/*
 // @match        https://t.corp.amazon.com/*
 // @updateURL    https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
 // @downloadURL  https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
 // @grant        GM_addStyle
-// @supportURL https://github.com/giovcris411/roc-userscripts
-// @author Giovcris ROC
+// @supportURL   https://github.com/giovcris411/roc-userscripts
+// @author       Giovcris ROC
 // ==/UserScript==
 
 (() => {
@@ -27,6 +27,22 @@
       STATUS: ["Status"],
       ASSIGNEE: ["Assignee", "Owner", "Assigned to"],
       CREATED: ["Created", "Create Date", "Created Date"],
+      TYPE: ["Type", "Tipo"]
+    },
+
+    TYPE_CLASSIFICATION: {
+      "Cancelación de VRID": { name: "ADHOC", css: "adhoc", emoji: "➕🚛" },
+      "Caps": { name: "CASES", css: "cases", emoji: "🛠️🏢" },
+      "Disrupcion en Ruta": { name: "TRACKEO", css: "trackeo", emoji: "📡📍" },
+      "Edicion de VRID": { name: "CASES", css: "cases", emoji: "🛠️🏢" },
+      "Metrics": { name: "SCHEDULING", css: "scheduling", emoji: "📅📊" },
+      "MM Planning": { name: "SCHEDULING", css: "scheduling", emoji: "📅📊" },
+      "Problema en la Carga": { name: "CASES", css: "cases", emoji: "🛠️🏢" },
+      "Reactive Scheduling": { name: "ADHOC", css: "adhoc", emoji: "➕🚛" },
+      "Solicitud de ETA": { name: "TRACKEO", css: "trackeo", emoji: "📡📍" },
+      "Soporte en Yard": { name: "CASES", css: "cases", emoji: "🛠️🏢" },
+      "Totes MX": { name: "SCHEDULING", css: "scheduling", emoji: "📅📊" },
+      "VRID Adicional": { name: "ADHOC", css: "adhoc", emoji: "➕🚛" }
     },
 
     STATUS_WIP: "Work In Progress",
@@ -37,7 +53,7 @@
 
     NEW_TT_NOTIFY: { ENABLED: true },
 
-    STORAGE_PREFIX: "sim_assignment_guardian_v1_3",
+    STORAGE_PREFIX: "sim_assignment_guardian_v1_6",
   };
 
   GM_addStyle(`
@@ -71,6 +87,26 @@
     .slaBadge.crit{ border-color:#e67e22; }
     .slaBadge.warn{ border-color:#f1c40f; }
     .slaBadge.ok{ border-color:#2ecc71; }
+
+    /* Estilos actualizados: Solo contorno (borde) y texto de color, sin fondo */
+    .typeBadge {
+      display: block;
+      width: max-content;
+      margin-top: 6px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      background-color: #ffffff; /* Fondo blanco para que no se mezcle con la fila */
+      border: 1.5px solid; /* Grosor del contorno */
+    }
+
+    /* Colores aplicados al borde y al texto */
+    .typeBadge.adhoc { color: #8e44ad; border-color: #8e44ad; }
+    .typeBadge.trackeo { color: #2980b9; border-color: #2980b9; }
+    .typeBadge.cases { color: #d35400; border-color: #d35400; }
+    .typeBadge.scheduling { color: #2c3e50; border-color: #2c3e50; }
   `);
 
   const now = () => new Date();
@@ -89,7 +125,6 @@
     return -1;
   }
 
-  // SIM Created example: "2026-02-23 10:54:29 AM (UTC-06:00)"
   function parseSimCreatedDate(s) {
     const t = String(s || "").trim();
     if (!t) return null;
@@ -135,7 +170,6 @@
         return;
       }
     } catch {}
-    console.log("[NEW TT]", title, body);
   }
 
   function isProbablySimPage() {
@@ -185,6 +219,24 @@
     b.textContent = text;
   }
 
+  function upsertClassBadge(cell, classData) {
+    if (!cell) return;
+    let b = cell.querySelector(".typeBadge");
+
+    if (!classData) {
+      if (b) b.remove();
+      return;
+    }
+
+    if (!b) {
+      b = document.createElement("div");
+      cell.appendChild(b);
+    }
+    b.className = `typeBadge ${classData.css}`;
+    // Cambiado: Primero el nombre, luego el emoji
+    b.textContent = `${classData.name} ${classData.emoji}`;
+  }
+
   function process() {
     if (!isProbablySimPage()) return;
 
@@ -200,6 +252,7 @@
       status: findHeaderIndex(ths, CFG.HEADERS.STATUS),
       assignee: findHeaderIndex(ths, CFG.HEADERS.ASSIGNEE),
       created: findHeaderIndex(ths, CFG.HEADERS.CREATED),
+      type: findHeaderIndex(ths, CFG.HEADERS.TYPE),
     };
 
     if (idx.shortId < 0 || idx.created < 0 || idx.status < 0 || idx.assignee < 0) return;
@@ -211,14 +264,12 @@
 
     const rows = Array.from(tbody.querySelectorAll("tr"));
 
-    // ===== FIX: Notify only newest TT (top row) =====
     if (CFG.NEW_TT_NOTIFY.ENABLED && rows.length > 0) {
       const firstRow = rows[0];
       const tds = Array.from(firstRow.querySelectorAll("td"));
       if (tds.length) {
-        const shortId = (tds[idx.shortId]?.innerText || "").trim();
+        const shortId = (tds[idx.shortId]?.innerText || "").trim().split('\n')[0];
         const title = idx.title >= 0 ? (tds[idx.title]?.innerText || "").trim() : "";
-
         const lastNotifiedId = localStorage.getItem(lsKey("lastNotifiedTop"));
 
         if (shortId && shortId !== lastNotifiedId) {
@@ -228,14 +279,14 @@
       }
     }
 
-    // Visual SLA
     let pend = 0, warn = 0, crit = 0, dead = 0;
 
     for (const r of rows) {
       const tds = Array.from(r.querySelectorAll("td"));
       if (!tds.length) continue;
 
-      const shortId = (tds[idx.shortId]?.innerText || "").trim();
+      const shortIdRaw = (tds[idx.shortId]?.innerText || "").trim();
+      const shortId = shortIdRaw.split('\n')[0];
       if (!shortId) continue;
 
       const status = (tds[idx.status]?.innerText || "").trim();
@@ -243,16 +294,30 @@
       const createdText = (tds[idx.created]?.innerText || "").trim();
       const createdDt = parseSimCreatedDate(createdText);
 
+      const typeText = idx.type >= 0 ? (tds[idx.type]?.innerText || "").trim() : "";
+      let matchedClass = null;
+
+      if (typeText) {
+        const typeLower = typeText.toLowerCase();
+        for (const [key, value] of Object.entries(CFG.TYPE_CLASSIFICATION)) {
+          if (typeLower.includes(key.toLowerCase())) {
+            matchedClass = value;
+            break;
+          }
+        }
+      }
+
+      upsertClassBadge(tds[idx.shortId], matchedClass);
+
       r.classList.remove("sla-ok", "sla-warn", "sla-crit", "sla-dead");
 
       const isWip = status === CFG.STATUS_WIP;
       const isTeam = norm(assignee) === norm(CFG.ASSIGNEE_TEAM);
 
-      const needsStatus = !isWip; // Need Status = not WIP
-      const needsLogin = isTeam;  // Need Login  = still roc-team
+      const needsStatus = !isWip;
+      const needsLogin = isTeam;
       const pending = needsStatus || needsLogin;
 
-      // Label corto
       let needLabel = "";
       if (needsStatus && needsLogin) needLabel = "Need Action";
       else if (needsStatus) needLabel = "Need Status";
@@ -294,7 +359,6 @@
       if (idx.title >= 0) upsertBadge(tds[idx.title], level === "ok" ? "ok" : level, badgeText);
     }
 
-    // Radar counters
     const pendEl = document.getElementById("simPend");
     const warnEl = document.getElementById("simWarn");
     const critEl = document.getElementById("simCrit");
