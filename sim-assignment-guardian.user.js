@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name         SIM Guardian giovcris
+// @name         SIM Guardian giovcris (V2.5.2 Credenciales Fuertes)
 // @namespace    roc-mx
-// @version      1.6.0
-// @description  SIM SLA guard: Etiquetas bajo Short ID solo con contorno y emojis al final.
+// @version      2.5.2
+// @description  SIM SLA guard con Auto-Triage. Forzado de cookies corporativas (withCredentials) para evitar rechazos del servidor.
 // @match        https://*.corp.amazon.com/*
 // @match        https://t.corp.amazon.com/*
-// @updateURL    https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
-// @downloadURL  https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
 // @grant        GM_addStyle
+// @grant        GM_xmlhttpRequest
+// @connect      sim-ticketing-graphql-fleet.corp.amazon.com
 // @supportURL   https://github.com/giovcris411/roc-userscripts
 // @author       Giovcris ROC
 // ==/UserScript==
@@ -15,11 +15,24 @@
 (() => {
   "use strict";
 
+  const LBL = {
+    ADHOC: { name: "ADHOC", css: "adhoc", emoji: "➕🚛" },
+    CASES: { name: "CASES", css: "cases", emoji: "🛠️🏢" },
+    TRACKEO: { name: "TRACKEO", css: "trackeo", emoji: "📡📍" },
+    SCHEDULING: { name: "SCHEDULING", css: "scheduling", emoji: "📅📊" }
+  };
+
   const CFG = {
     SLA_MINUTES: 15,
     WARN_MIN: 10,
     CRIT_MIN: 13,
     REFRESH_MS: 6000,
+
+    // --- CONFIGURACIÓN DE LA VÁLVULA DE ALIVIO ---
+    RELIEF_THRESHOLD: 100,
+
+    // TEXTO DE RESPUESTA AUTOMÁTICA
+    AUTO_REPLY_TEXT: "Buen dia team!!\n\nEnseguida se trabaja su solicitud",
 
     HEADERS: {
       SHORT_ID: ["Short ID", "Short Id", "ShortID", "Ticket", "TT"],
@@ -27,49 +40,43 @@
       STATUS: ["Status"],
       ASSIGNEE: ["Assignee", "Owner", "Assigned to"],
       CREATED: ["Created", "Create Date", "Created Date"],
-      TYPE: ["Type", "Tipo"]
+      TYPE: ["Type", "Tipo"],
+      ITEM: ["Item", "Articulo", "Ítem"]
     },
 
     TYPE_CLASSIFICATION: {
-      "Cancelación de VRID": { name: "ADHOC", css: "adhoc", emoji: "➕🚛" },
-      "Caps": { name: "CASES", css: "cases", emoji: "🛠️🏢" },
-      "Disrupcion en Ruta": { name: "TRACKEO", css: "trackeo", emoji: "📡📍" },
-      "Edicion de VRID": { name: "CASES", css: "cases", emoji: "🛠️🏢" },
-      "Metrics": { name: "SCHEDULING", css: "scheduling", emoji: "📅📊" },
-      "MM Planning": { name: "SCHEDULING", css: "scheduling", emoji: "📅📊" },
-      "Problema en la Carga": { name: "CASES", css: "cases", emoji: "🛠️🏢" },
-      "Reactive Scheduling": { name: "ADHOC", css: "adhoc", emoji: "➕🚛" },
-      "Solicitud de ETA": { name: "TRACKEO", css: "trackeo", emoji: "📡📍" },
-      "Soporte en Yard": { name: "CASES", css: "cases", emoji: "🛠️🏢" },
-      "Totes MX": { name: "SCHEDULING", css: "scheduling", emoji: "📅📊" },
-      "VRID Adicional": { name: "ADHOC", css: "adhoc", emoji: "➕🚛" }
+      "Cancelación de VRID": { "All": LBL.ADHOC, "Error en configuraciones": LBL.ADHOC, "Volumen insuficiente": LBL.ADHOC },
+      "Caps": { "All": LBL.CASES, "Tactical Cap Adjustment": LBL.CASES },
+      "Disrupcion en Ruta": { "All": LBL.TRACKEO, "Accidente en Ruta": LBL.TRACKEO, "Evento de Fuerza Mayor": LBL.TRACKEO, "Manifestantes": LBL.TRACKEO, "Trafico": LBL.TRACKEO },
+      "Edicion de VRID": { "All": LBL.CASES, "Cambio de capacidad": LBL.ADHOC, "Corrección de ruta": LBL.CASES, "CPT Incorrecto": LBL.CASES, "Registro en Dock Master": LBL.CASES, "Transit Time Incorrecto": LBL.CASES },
+      "Metrics": { "All": LBL.SCHEDULING, "Modificacion de LTR": LBL.CASES },
+      "MM Planning": { "All": LBL.SCHEDULING, "CRets": LBL.SCHEDULING, "EF/ES Plan": LBL.SCHEDULING, "MM First Leg Plan": LBL.SCHEDULING, "MM Second Leg Plan": LBL.SCHEDULING, "WHT Planning": LBL.SCHEDULING },
+      "Problema en la Carga": { "All": LBL.CASES, "MNR/RNM": LBL.CASES, "No es Posible Descargar la mercancia": LBL.CASES, "Paquetes Missorts": LBL.CASES },
+      "Reactive Scheduling": { "All": LBL.ADHOC, "Ad Hoc": LBL.ADHOC, "Hard Cancellations": LBL.ADHOC, "Soft Cancellations": LBL.CASES },
+      "Solicitud de ETA": { "All": LBL.TRACKEO, "ETA para Arrival": LBL.TRACKEO, "ETA para Departure": LBL.CASES, "ETA para Pick-Up": LBL.TRACKEO },
+      "Soporte en Yard": { "All": LBL.CASES, "Call Out para el Carrier": LBL.CASES, "Colisión en el Yard": LBL.CASES, "Daño al Site": LBL.CASES, "Problema con CCP": LBL.CASES, "Truck Rechazado": LBL.CASES, "WePay": LBL.CASES },
+      "Totes MX": { "All": LBL.CASES, "Ad Hoc": LBL.ADHOC, "Cancelacion de VRID": LBL.ADHOC, "Programacion de Viaje Nacional": LBL.SCHEDULING },
+      "VRID Adicional": { "All": LBL.ADHOC, "Ad hoc": LBL.ADHOC, "Direct Imports": LBL.CASES, "Easy Ship": LBL.CASES, "VRID Dummy": LBL.CASES, "WePay": LBL.CASES }
     },
 
     STATUS_WIP: "Work In Progress",
     ASSIGNEE_TEAM: "roc-team",
-
     REQUIRE_TABLE_HINT: false,
     TABLE_HINT_TEXT: "Search results",
-
     NEW_TT_NOTIFY: { ENABLED: true },
-
-    STORAGE_PREFIX: "sim_assignment_guardian_v1_6",
+    STORAGE_PREFIX: "sim_assignment_guardian_v2_5_2",
   };
 
   GM_addStyle(`
     .slaRadarBox{
-      position: sticky; top: 0; z-index: 9999;
       background:#fff; border:1px solid #ddd; border-radius:8px;
-      padding:10px 12px; margin:10px 0;
+      padding:10px 12px; margin-bottom:15px;
       font-family: Arial, sans-serif; font-size:12px;
       box-shadow:0 2px 12px rgba(0,0,0,.08);
       display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+      position: relative;
     }
-    .slaPill{
-      border:1px solid #ddd; border-radius:999px;
-      padding:4px 10px; display:inline-flex; gap:6px; align-items:center;
-      background:#fafafa;
-    }
+    .slaPill{ border:1px solid #ddd; border-radius:999px; padding:4px 10px; display:inline-flex; gap:6px; align-items:center; background:#fafafa; }
     .slaPill b{font-size:12px;}
     .slaSmall{opacity:.75}
 
@@ -78,39 +85,148 @@
     tr.sla-crit{ background: rgba(230, 126, 34, .22) !important; }
     tr.sla-dead{ background: rgba(231, 76, 60, .20) !important; }
 
-    .slaBadge{
-      display:inline-block; padding:2px 8px; border-radius:999px;
-      border:1px solid #ddd; font-size:11px; margin-left:8px;
-      background:#fff; white-space:nowrap;
-    }
+    .slaBadge{ display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #ddd; font-size:11px; margin-left:8px; background:#fff; white-space:nowrap; }
     .slaBadge.dead{ border-color:#e74c3c; }
     .slaBadge.crit{ border-color:#e67e22; }
     .slaBadge.warn{ border-color:#f1c40f; }
     .slaBadge.ok{ border-color:#2ecc71; }
 
-    /* Estilos actualizados: Solo contorno (borde) y texto de color, sin fondo */
-    .typeBadge {
-      display: block;
-      width: max-content;
-      margin-top: 6px;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: bold;
-      text-transform: uppercase;
-      background-color: #ffffff; /* Fondo blanco para que no se mezcle con la fila */
-      border: 1.5px solid; /* Grosor del contorno */
-    }
-
-    /* Colores aplicados al borde y al texto */
+    .typeBadge { display: block; width: max-content; margin-top: 6px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; text-transform: uppercase; background-color: #ffffff; border: 1.5px solid; }
     .typeBadge.adhoc { color: #8e44ad; border-color: #8e44ad; }
     .typeBadge.trackeo { color: #2980b9; border-color: #2980b9; }
     .typeBadge.cases { color: #d35400; border-color: #d35400; }
     .typeBadge.scheduling { color: #2c3e50; border-color: #2c3e50; }
+
+    table.sim-guardian-table { border-collapse: separate !important; border-spacing: 0 5px !important; }
+
+    tr[class*="row-"] td:first-child { border-top-left-radius: 10px !important; border-bottom-left-radius: 10px !important; }
+    tr[class*="row-"] td:last-child { border-top-right-radius: 10px !important; border-bottom-right-radius: 10px !important; }
+
+    tr.row-adhoc td { border-top: 1.5px solid #8e44ad !important; border-bottom: 1.5px solid #8e44ad !important; transition: background-color 0.2s ease; }
+    tr.row-adhoc td:first-child { border-left: 5px solid #8e44ad !important; }
+    tr.row-adhoc td:last-child { border-right: 1.5px solid #8e44ad !important; }
+
+    tr.row-trackeo td { border-top: 1.5px solid #2980b9 !important; border-bottom: 1.5px solid #2980b9 !important; transition: background-color 0.2s ease; }
+    tr.row-trackeo td:first-child { border-left: 5px solid #2980b9 !important; }
+    tr.row-trackeo td:last-child { border-right: 1.5px solid #2980b9 !important; }
+
+    tr.row-cases td { border-top: 1.5px solid #d35400 !important; border-bottom: 1.5px solid #d35400 !important; transition: background-color 0.2s ease; }
+    tr.row-cases td:first-child { border-left: 5px solid #d35400 !important; }
+    tr.row-cases td:last-child { border-right: 1.5px solid #d35400 !important; }
+
+    tr.row-scheduling td { border-top: 1.5px solid #2c3e50 !important; border-bottom: 1.5px solid #2c3e50 !important; transition: background-color 0.2s ease; }
+    tr.row-scheduling td:first-child { border-left: 5px solid #2c3e50 !important; }
+    tr.row-scheduling td:last-child { border-right: 1.5px solid #2c3e50 !important; }
+
+    tr[class*="row-"]:hover td { background-color: rgba(0, 0, 0, 0.04) !important; }
+
+    .btn-auto-triage {
+      position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+      padding: 6px 12px; background-color: #2980b9; color: white !important; font-weight: bold;
+      border: none; border-radius: 6px; font-size: 11px; cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s; z-index: 10;
+    }
+    .btn-auto-triage:hover { background-color: #1abc9c; transform: translateY(-50%) scale(1.05); }
+
+    .btn-auto-triage.disabled {
+      background-color: #bdc3c7 !important;
+      color: #7f8c8d !important;
+      cursor: not-allowed !important;
+      box-shadow: none !important;
+      transform: translateY(-50%) !important;
+    }
   `);
 
   const now = () => new Date();
   const norm = s => String(s || "").trim().toLowerCase();
+
+  // --- COMPORTAMIENTO FORZADO DE CREDENCIALES ---
+  function graphqlFetch(operationName, query, variables) {
+    return new Promise((resolve, reject) => {
+      const csrfToken = document.cookie.match(/anti-csrftoken-a2z=([^;]+)/)?.[1] || "";
+      const endpoint = "https://sim-ticketing-graphql-fleet.corp.amazon.com/graphql";
+
+      GM_xmlhttpRequest({
+        method: "POST",
+        url: endpoint,
+        // CLAVE OPERATIVA: Forzamos el arrastre de cookies de sesión corporativa activas
+        withCredentials: true,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "anti-csrftoken-a2z": csrfToken,
+          "Origin": window.location.origin,
+          "Referer": window.location.href
+        },
+        data: JSON.stringify({ operationName, query, variables }),
+        onload: (response) => {
+          if (response.status >= 200 && response.status < 300) {
+            try {
+              const json = JSON.parse(response.responseText);
+              if (json.errors) reject(new Error(json.errors[0].message));
+              else resolve(json.data);
+            } catch (e) {
+              reject(new Error("Error al procesar JSON de respuesta"));
+            }
+          } else {
+            reject(new Error(`HTTP Error: ${response.status}`));
+          }
+        },
+        onerror: (err) => reject(err)
+      });
+    });
+  }
+
+  async function performAutoTriage(btn, shortId) {
+    btn.textContent = "⏳ Conectando...";
+    btn.style.backgroundColor = "#f39c12";
+    btn.style.pointerEvents = "none";
+
+    try {
+      const assignData = await graphqlFetch(
+        "assignIssue",
+        "mutation assignIssue($issueId: String!, $assignee: String!) { assignIssue(issueId: $issueId, assignee: $assignee) { id } }",
+        { issueId: shortId, assignee: "me" }
+      );
+
+      const uuid = assignData.assignIssue.id;
+      if (!uuid) throw new Error("No se pudo obtener el UUID");
+
+      btn.textContent = "⏳ Estatus...";
+      await graphqlFetch(
+        "changeIssueStatus",
+        "mutation changeIssueStatus($args: EditIssueInput!) { editIssue(args: $args) { id } }",
+        { args: { issueId: uuid, status: "Work In Progress" } }
+      );
+
+      btn.textContent = "⏳ Comentando...";
+      await graphqlFetch(
+        "createCommentOnThread",
+        "mutation createCommentOnThread($args: CommentInput!) { createCommentGetComment(args: $args) { id } }",
+        { args: { contentType: "text/plain", mentions: [], message: CFG.AUTO_REPLY_TEXT, threadId: `updates:${uuid}` } }
+      );
+
+      btn.textContent = "✅ Realizado!";
+      btn.style.backgroundColor = "#2ecc71";
+
+      const fila = btn.closest("tr");
+      if(fila) {
+          fila.classList.remove("sla-dead", "sla-crit", "sla-warn");
+          fila.classList.add("sla-ok");
+          const titleBadge = fila.querySelector(".slaBadge");
+          if(titleBadge) {
+              titleBadge.className = "slaBadge ok";
+              titleBadge.innerHTML = "✅ Triage Automático";
+          }
+      }
+
+    } catch (error) {
+      console.error("Error en Auto-Triage SIM:", error);
+      btn.textContent = "❌ Error API";
+      btn.style.backgroundColor = "#e74c3c";
+      btn.style.pointerEvents = "auto";
+    }
+  }
 
   function findHeaderIndex(ths, variants) {
     const v = variants.map(x => norm(x));
@@ -128,23 +244,16 @@
   function parseSimCreatedDate(s) {
     const t = String(s || "").trim();
     if (!t) return null;
-
     const cleaned = t.replace(/\(UTC[^\)]*\)/ig, "").trim();
-
     const m = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
     if (m) {
-      const yyyy = Number(m[1]);
-      const mm = Number(m[2]);
-      const dd = Number(m[3]);
+      const yyyy = Number(m[1]), mm = Number(m[2]), dd = Number(m[3]);
       let hh = Number(m[4]);
-      const mi = Number(m[5]);
-      const ss = Number(m[6]);
-      const ap = m[7].toLowerCase();
+      const mi = Number(m[5]), ss = Number(m[6]), ap = m[7].toLowerCase();
       if (ap === "pm" && hh !== 12) hh += 12;
       if (ap === "am" && hh === 12) hh = 0;
       return new Date(yyyy, mm - 1, dd, hh, mi, ss, 0);
     }
-
     const d = new Date(cleaned);
     if (!isNaN(d.getTime())) return d;
     return null;
@@ -153,23 +262,6 @@
   function minutesBetween(a, b) {
     if (!a || !b) return null;
     return Math.floor((b.getTime() - a.getTime()) / 60000);
-  }
-
-  function lsKey(suffix) { return `${CFG.STORAGE_PREFIX}:${suffix}`; }
-
-  function notifyNewTT(title, body) {
-    if (!CFG.NEW_TT_NOTIFY.ENABLED) return;
-    try {
-      if (Notification && Notification.permission === "granted") {
-        new Notification(title, { body }); return;
-      }
-      if (Notification && Notification.permission !== "denied") {
-        Notification.requestPermission().then(p => {
-          if (p === "granted") new Notification(title, { body });
-        });
-        return;
-      }
-    } catch {}
   }
 
   function isProbablySimPage() {
@@ -191,7 +283,6 @@
   function ensureRadarBox(anchorEl) {
     let box = document.querySelector(".slaRadarBox");
     if (box) return box;
-
     box = document.createElement("div");
     box.className = "slaRadarBox";
     box.innerHTML = `
@@ -222,26 +313,69 @@
   function upsertClassBadge(cell, classData) {
     if (!cell) return;
     let b = cell.querySelector(".typeBadge");
-
-    if (!classData) {
-      if (b) b.remove();
-      return;
-    }
-
+    if (!classData) { if (b) b.remove(); return; }
     if (!b) {
       b = document.createElement("div");
       cell.appendChild(b);
     }
     b.className = `typeBadge ${classData.css}`;
-    // Cambiado: Primero el nombre, luego el emoji
     b.textContent = `${classData.name} ${classData.emoji}`;
+  }
+
+  function injectTriageButton(cell, shortId, isDisabled) {
+    if (!cell) return;
+    let btn = cell.querySelector(".btn-auto-triage");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.className = "btn-auto-triage";
+      cell.appendChild(btn);
+    }
+
+    if (isDisabled) {
+      btn.classList.add("disabled");
+      btn.innerHTML = "🔒 Bloqueado";
+      btn.title = `Válvula cerrada. Requiere que SIM registre al menos ${CFG.RELIEF_THRESHOLD} ticket general en el contador.`;
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+    } else {
+      btn.classList.remove("disabled");
+      btn.innerHTML = "⚡ Tomar TT";
+      btn.title = "¡Válvula de alivio operativa!";
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        performAutoTriage(btn, shortId);
+      };
+    }
+  }
+
+  function removeTriageButton(cell) {
+    if (!cell) return;
+    let btn = cell.querySelector(".btn-auto-triage");
+    if (btn) btn.remove();
+  }
+
+  function getOfficialSimTicketCount() {
+    const elements = Array.from(document.querySelectorAll('h2, span, div, b, th, td'));
+    for (const el of elements) {
+      if (el.children.length === 0 && el.innerText && el.innerText.includes("Tickets (")) {
+        const match = el.innerText.match(/Tickets\s*\((\d+)\)/i);
+        if (match) {
+          return parseInt(match[1], 10);
+        }
+      }
+    }
+    return null;
   }
 
   function process() {
     if (!isProbablySimPage()) return;
-
     const table = findTicketsTable();
     if (!table) return;
+
+    table.classList.add("sim-guardian-table");
 
     const ths = Array.from(table.querySelectorAll("thead th"));
     if (!ths.length) return;
@@ -253,6 +387,7 @@
       assignee: findHeaderIndex(ths, CFG.HEADERS.ASSIGNEE),
       created: findHeaderIndex(ths, CFG.HEADERS.CREATED),
       type: findHeaderIndex(ths, CFG.HEADERS.TYPE),
+      item: findHeaderIndex(ths, CFG.HEADERS.ITEM)
     };
 
     if (idx.shortId < 0 || idx.created < 0 || idx.status < 0 || idx.assignee < 0) return;
@@ -261,23 +396,11 @@
     if (!tbody) return;
 
     ensureRadarBox(table);
-
     const rows = Array.from(tbody.querySelectorAll("tr"));
 
-    if (CFG.NEW_TT_NOTIFY.ENABLED && rows.length > 0) {
-      const firstRow = rows[0];
-      const tds = Array.from(firstRow.querySelectorAll("td"));
-      if (tds.length) {
-        const shortId = (tds[idx.shortId]?.innerText || "").trim().split('\n')[0];
-        const title = idx.title >= 0 ? (tds[idx.title]?.innerText || "").trim() : "";
-        const lastNotifiedId = localStorage.getItem(lsKey("lastNotifiedTop"));
-
-        if (shortId && shortId !== lastNotifiedId) {
-          localStorage.setItem(lsKey("lastNotifiedTop"), shortId);
-          notifyNewTT("SIM TT", `${shortId} | ${title}`.slice(0, 180));
-        }
-      }
-    }
+    const totalOficialSIM = getOfficialSimTicketCount();
+    const conteoFinalParaValvula = totalOficialSIM !== null ? totalOficialSIM : rows.length;
+    const esValvulaAbierta = conteoFinalParaValvula >= CFG.RELIEF_THRESHOLD;
 
     let pend = 0, warn = 0, crit = 0, dead = 0;
 
@@ -289,19 +412,29 @@
       const shortId = shortIdRaw.split('\n')[0];
       if (!shortId) continue;
 
+      removeTriageButton(tds[idx.shortId]);
+
       const status = (tds[idx.status]?.innerText || "").trim();
       const assignee = (tds[idx.assignee]?.innerText || "").trim();
       const createdText = (tds[idx.created]?.innerText || "").trim();
       const createdDt = parseSimCreatedDate(createdText);
 
       const typeText = idx.type >= 0 ? (tds[idx.type]?.innerText || "").trim() : "";
+      const itemText = idx.item >= 0 ? (tds[idx.item]?.innerText || "").trim() : "";
       let matchedClass = null;
 
       if (typeText) {
         const typeLower = typeText.toLowerCase();
-        for (const [key, value] of Object.entries(CFG.TYPE_CLASSIFICATION)) {
-          if (typeLower.includes(key.toLowerCase())) {
-            matchedClass = value;
+        const itemLower = itemText.toLowerCase();
+
+        for (const [typeKey, itemMap] of Object.entries(CFG.TYPE_CLASSIFICATION)) {
+          if (typeLower.includes(typeKey.toLowerCase())) {
+            for (const [itemKey, classData] of Object.entries(itemMap)) {
+              if (itemKey.toLowerCase() !== "all" && itemText && itemLower.includes(itemKey.toLowerCase())) {
+                matchedClass = classData; break;
+              }
+            }
+            if (!matchedClass && itemMap["All"]) matchedClass = itemMap["All"];
             break;
           }
         }
@@ -310,6 +443,8 @@
       upsertClassBadge(tds[idx.shortId], matchedClass);
 
       r.classList.remove("sla-ok", "sla-warn", "sla-crit", "sla-dead");
+      r.classList.remove("row-adhoc", "row-cases", "row-trackeo", "row-scheduling");
+      if (matchedClass) r.classList.add(`row-${matchedClass.css}`);
 
       const isWip = status === CFG.STATUS_WIP;
       const isTeam = norm(assignee) === norm(CFG.ASSIGNEE_TEAM);
@@ -325,8 +460,17 @@
 
       if (!pending) {
         r.classList.add("sla-ok");
-        if (idx.title >= 0) upsertBadge(tds[idx.title], "ok", "✅");
+        if (idx.title >= 0) {
+          upsertBadge(tds[idx.title], "ok", "✅");
+          removeTriageButton(tds[idx.title]);
+        }
         continue;
+      }
+
+      if (idx.title >= 0) {
+        tds[idx.title].style.position = "relative";
+        tds[idx.title].style.paddingRight = "100px";
+        injectTriageButton(tds[idx.title], shortId, !esValvulaAbierta);
       }
 
       pend++;
@@ -334,7 +478,7 @@
       const elapsed = createdDt ? minutesBetween(createdDt, now()) : null;
       if (elapsed === null) {
         r.classList.add("sla-warn");
-        if (idx.title >= 0) upsertBadge(tds[idx.title], "warn", `⏱️ ${needLabel} (date parse issue)`);
+        if (idx.title >= 0) upsertBadge(tds[idx.title], "warn", `⏱️ ${needLabel}`);
         continue;
       }
 
@@ -349,7 +493,6 @@
       else { r.classList.add("sla-ok"); }
 
       const remaining = CFG.SLA_MINUTES - elapsed;
-
       const badgeText =
         level === "dead" ? `💀 ${elapsed}m (BREACH) | ${needLabel}` :
         level === "crit" ? `🔥 ${elapsed}m (${remaining}m left) | ${needLabel}` :
@@ -378,9 +521,7 @@
   }
 
   setInterval(safeRun, CFG.REFRESH_MS);
-
   const obs = new MutationObserver(() => safeRun());
   obs.observe(document.documentElement, { childList: true, subtree: true });
-
   safeRun();
 })();
