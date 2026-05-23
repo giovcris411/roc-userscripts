@@ -1,10 +1,12 @@
 // ==UserScript==
-// @name         SIM Guardian giovcris (V2.5.2 Credenciales Fuertes)
+// @name         SIM Guardian giovcris (Master Version)
 // @namespace    roc-mx
-// @version      2.6.0
-// @description  SIM SLA guard con Auto-Triage. Forzado de cookies corporativas (withCredentials) para evitar rechazos del servidor.
+// @version      2.6.1
+// @description  SIM SLA guard con Auto-Triage. API cross-domain, credenciales forzadas y Auto-Update de GitHub restaurado.
 // @match        https://*.corp.amazon.com/*
 // @match        https://t.corp.amazon.com/*
+// @updateURL    https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
+// @downloadURL  https://raw.githubusercontent.com/giovcris411/roc-userscripts/main/sim-assignment-guardian.user.js
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
 // @connect      sim-ticketing-graphql-fleet.corp.amazon.com
@@ -29,7 +31,7 @@
     REFRESH_MS: 6000,
 
     // --- CONFIGURACIÓN DE LA VÁLVULA DE ALIVIO ---
-    RELIEF_THRESHOLD: 100,
+    RELIEF_THRESHOLD: 50, // Ponle el número que gustes para tu operación
 
     // TEXTO DE RESPUESTA AUTOMÁTICA
     AUTO_REPLY_TEXT: "Buen dia team!!\n\nEnseguida se trabaja su solicitud",
@@ -41,7 +43,7 @@
       ASSIGNEE: ["Assignee", "Owner", "Assigned to"],
       CREATED: ["Created", "Create Date", "Created Date"],
       TYPE: ["Type", "Tipo"],
-      ITEM: ["Item", "Articulo", "Ítem"]
+      ITEM: ["Item", "Articulo", "Ítem"] 
     },
 
     TYPE_CLASSIFICATION: {
@@ -64,7 +66,7 @@
     REQUIRE_TABLE_HINT: false,
     TABLE_HINT_TEXT: "Search results",
     NEW_TT_NOTIFY: { ENABLED: true },
-    STORAGE_PREFIX: "sim_assignment_guardian_v2_5_2",
+    STORAGE_PREFIX: "sim_assignment_guardian_v2_6",
   };
 
   GM_addStyle(`
@@ -92,10 +94,10 @@
     .slaBadge.ok{ border-color:#2ecc71; }
 
     .typeBadge { display: block; width: max-content; margin-top: 6px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; text-transform: uppercase; background-color: #ffffff; border: 1.5px solid; }
-    .typeBadge.adhoc { color: #8e44ad; border-color: #8e44ad; }
-    .typeBadge.trackeo { color: #2980b9; border-color: #2980b9; }
-    .typeBadge.cases { color: #d35400; border-color: #d35400; }
-    .typeBadge.scheduling { color: #2c3e50; border-color: #2c3e50; }
+    .typeBadge.adhoc { color: #8e44ad; border-color: #8e44ad; } 
+    .typeBadge.trackeo { color: #2980b9; border-color: #2980b9; } 
+    .typeBadge.cases { color: #d35400; border-color: #d35400; } 
+    .typeBadge.scheduling { color: #2c3e50; border-color: #2c3e50; } 
 
     table.sim-guardian-table { border-collapse: separate !important; border-spacing: 0 5px !important; }
 
@@ -123,7 +125,7 @@
     .btn-auto-triage {
       position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
       padding: 6px 12px; background-color: #2980b9; color: white !important; font-weight: bold;
-      border: none; border-radius: 6px; font-size: 11px; cursor: pointer;
+      border: none; border-radius: 6px; font-size: 11px; cursor: pointer; 
       box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s; z-index: 10;
     }
     .btn-auto-triage:hover { background-color: #1abc9c; transform: translateY(-50%) scale(1.05); }
@@ -140,7 +142,6 @@
   const now = () => new Date();
   const norm = s => String(s || "").trim().toLowerCase();
 
-  // --- COMPORTAMIENTO FORZADO DE CREDENCIALES ---
   function graphqlFetch(operationName, query, variables) {
     return new Promise((resolve, reject) => {
       const csrfToken = document.cookie.match(/anti-csrftoken-a2z=([^;]+)/)?.[1] || "";
@@ -149,7 +150,6 @@
       GM_xmlhttpRequest({
         method: "POST",
         url: endpoint,
-        // CLAVE OPERATIVA: Forzamos el arrastre de cookies de sesión corporativa activas
         withCredentials: true,
         headers: {
           "Content-Type": "application/json",
@@ -208,7 +208,7 @@
 
       btn.textContent = "✅ Realizado!";
       btn.style.backgroundColor = "#2ecc71";
-
+      
       const fila = btn.closest("tr");
       if(fila) {
           fila.classList.remove("sla-dead", "sla-crit", "sla-warn");
@@ -344,9 +344,9 @@
       btn.innerHTML = "⚡ Tomar TT";
       btn.title = "¡Válvula de alivio operativa!";
       btn.onclick = (e) => {
-        e.preventDefault();
+        e.preventDefault(); 
         e.stopPropagation();
-        performAutoTriage(btn, shortId);
+        performAutoTriage(btn, shortId); 
       };
     }
   }
@@ -367,7 +367,7 @@
         }
       }
     }
-    return null;
+    return null; 
   }
 
   function process() {
@@ -386,8 +386,8 @@
       status: findHeaderIndex(ths, CFG.HEADERS.STATUS),
       assignee: findHeaderIndex(ths, CFG.HEADERS.ASSIGNEE),
       created: findHeaderIndex(ths, CFG.HEADERS.CREATED),
-      type: findHeaderIndex(ths, CFG.HEADERS.TYPE),
-      item: findHeaderIndex(ths, CFG.HEADERS.ITEM)
+      type: findHeaderIndex(ths, CFG.HEADERS.TYPE), 
+      item: findHeaderIndex(ths, CFG.HEADERS.ITEM) 
     };
 
     if (idx.shortId < 0 || idx.created < 0 || idx.status < 0 || idx.assignee < 0) return;
@@ -409,7 +409,7 @@
       if (!tds.length) continue;
 
       const shortIdRaw = (tds[idx.shortId]?.innerText || "").trim();
-      const shortId = shortIdRaw.split('\n')[0];
+      const shortId = shortIdRaw.split('\n')[0]; 
       if (!shortId) continue;
 
       removeTriageButton(tds[idx.shortId]);
@@ -418,15 +418,15 @@
       const assignee = (tds[idx.assignee]?.innerText || "").trim();
       const createdText = (tds[idx.created]?.innerText || "").trim();
       const createdDt = parseSimCreatedDate(createdText);
-
+      
       const typeText = idx.type >= 0 ? (tds[idx.type]?.innerText || "").trim() : "";
       const itemText = idx.item >= 0 ? (tds[idx.item]?.innerText || "").trim() : "";
       let matchedClass = null;
-
+      
       if (typeText) {
         const typeLower = typeText.toLowerCase();
         const itemLower = itemText.toLowerCase();
-
+        
         for (const [typeKey, itemMap] of Object.entries(CFG.TYPE_CLASSIFICATION)) {
           if (typeLower.includes(typeKey.toLowerCase())) {
             for (const [itemKey, classData] of Object.entries(itemMap)) {
@@ -435,7 +435,7 @@
               }
             }
             if (!matchedClass && itemMap["All"]) matchedClass = itemMap["All"];
-            break;
+            break; 
           }
         }
       }
@@ -449,8 +449,8 @@
       const isWip = status === CFG.STATUS_WIP;
       const isTeam = norm(assignee) === norm(CFG.ASSIGNEE_TEAM);
 
-      const needsStatus = !isWip;
-      const needsLogin = isTeam;
+      const needsStatus = !isWip; 
+      const needsLogin = isTeam;  
       const pending = needsStatus || needsLogin;
 
       let needLabel = "";
@@ -461,18 +461,18 @@
       if (!pending) {
         r.classList.add("sla-ok");
         if (idx.title >= 0) {
-          upsertBadge(tds[idx.title], "ok", "✅");
-          removeTriageButton(tds[idx.title]);
+          upsertBadge(tds[idx.title], "ok", "✅"); 
+          removeTriageButton(tds[idx.title]); 
         }
         continue;
       }
 
       if (idx.title >= 0) {
         tds[idx.title].style.position = "relative";
-        tds[idx.title].style.paddingRight = "100px";
+        tds[idx.title].style.paddingRight = "100px"; 
         injectTriageButton(tds[idx.title], shortId, !esValvulaAbierta);
       }
-
+      
       pend++;
 
       const elapsed = createdDt ? minutesBetween(createdDt, now()) : null;
