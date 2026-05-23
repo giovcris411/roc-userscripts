@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SIM Guardian giovcris (V2.5.2 Credenciales Fuertes)
 // @namespace    roc-mx
-// @version      2.5.2
+// @version      2.6.0
 // @description  SIM SLA guard con Auto-Triage. Forzado de cookies corporativas (withCredentials) para evitar rechazos del servidor.
 // @match        https://*.corp.amazon.com/*
 // @match        https://t.corp.amazon.com/*
