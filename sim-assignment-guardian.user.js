@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SIM Guardian giovcris (Master Version)
 // @namespace    roc-mx
-// @version      2.6.1
+// @version      2.6.2
 // @description  SIM SLA guard con Auto-Triage. API cross-domain, credenciales forzadas y Auto-Update de GitHub restaurado.
 // @match        https://*.corp.amazon.com/*
 // @match        https://t.corp.amazon.com/*
@@ -31,7 +31,7 @@
     REFRESH_MS: 6000,
 
     // --- CONFIGURACIÓN DE LA VÁLVULA DE ALIVIO ---
-    RELIEF_THRESHOLD: 50, // Ponle el número que gustes para tu operación
+    RELIEF_THRESHOLD: 500, // Ponle el número que gustes para tu operación
 
     // TEXTO DE RESPUESTA AUTOMÁTICA
     AUTO_REPLY_TEXT: "Buen dia team!!\n\nEnseguida se trabaja su solicitud",
