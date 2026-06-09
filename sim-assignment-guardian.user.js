@@ -33,7 +33,7 @@
     AUTO_REPLY_TEXT: "Buen dia team!!\n\nEnseguida se trabaja su solicitud",
 
     // 🔴 Aquí ignoramos a tu usuario para que no te genere alerta a ti mismo.
-    IGNORE_AUTHORS: ["giovcris", "system", "arn:aws", "SnowEngine", "apex_pddr", "AutomationRules", "antohfr", "ajorgena", "pimentdp", "eemanuep", "andretoz", "albehug", "jazmirai", "huemitzi", "flobofer", "alandeg", "jumendoj", "radaigon", "rosaareg", "tanvmi", "angelch", "aripm", "camoch", "dakruizg", "diadoran", "carbauti", "julioczj", "rosamueh", "zargilbe", "breavile", "jakeven", "alducin", "lopenaye", "jojega", "israsty"],
+    IGNORE_AUTHORS: ["giovcris", "system", "arn:aws", "SnowEngine", "apex_pddr", "AutomationRules", "antohfr", "ajorgena", "pimentdp", "eemanuep", "andretoz", "albehug", "jazmirai", "huemitzi", "flobofer", "alandeg", "jumendoj", "radaigon", "rosaareg", "tanvmi", "angelch", "aripm", "camoch", "dakruizg", "diadoran", "carbauti", "julioczj", "rosamueh", "zargilbe", "breavile", "jakeven", "alducin", "lopenaye", "jojega", "israsty", "gonbrenz"],
 
     HEADERS: {
       SHORT_ID: ["Short ID", "Short Id", "ShortID", "Ticket", "TT"],
