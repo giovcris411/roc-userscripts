@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SIM Guardian giovcris (V8.4.1 Link Fix)
 // @namespace    roc-mx
-// @version      8.4.1
+// @version      8.5.0
 // @description  SIM SLA guard. Reparación de enlaces azules (Short ID/Title), omisión de bots y candado anti-trabado.
 // @match        https://*.corp.amazon.com/*
 // @match        https://t.corp.amazon.com/*
@@ -33,7 +33,7 @@
     AUTO_REPLY_TEXT: "Buen dia team!!\n\nEnseguida se trabaja su solicitud",
 
     // 🔴 Aquí ignoramos a tu usuario para que no te genere alerta a ti mismo.
-    IGNORE_AUTHORS: ["giovcris", "system", "arn:aws", "SnowEngine", "apex_pddr", "AutomationRules", "antohfr", "ajorgena", "pimentdp", "eemanuep", "andretoz", "albehug", "jazmirai", "huemitzi", "flobofer", "alandeg", "jumendoj", "radaigon", "rosaareg", "tanvmi", "angelch", "aripm", "camoch", "dakruizg", "diadoran", "carbauti", "julioczj", "rosamueh", "zargilbe", "breavile", "jakeven", "alducin", "lopenaye", "jojega", "israsty", "gonbrenz"],
+    IGNORE_AUTHORS: ["giovcris", "system", "arn:aws", "SnowEngine", "apex_pddr", "AutomationRules", "antohfr", "ajorgena", "pimentdp", "eemanuep", "andretoz", "albehug", "jazmirai", "huemitzi", "flobofer", "alandeg", "jumendoj", "radaigon", "rosaareg", "tanvmi", "angelch", "aripm", "camoch", "dakruizg", "diadoran", "carbauti", "julioczj", "rosamueh", "zargilbe", "breavile", "jakeven", "alducin", "lopenaye", "jojega", "israsty", "gonbrenz", "lgarcleo"],
 
     HEADERS: {
       SHORT_ID: ["Short ID", "Short Id", "ShortID", "Ticket", "TT"],
