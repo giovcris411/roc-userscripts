@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SIM Guardian giovcris (V8.4.1 Link Fix)
 // @namespace    roc-mx
-// @version      8.6.1
+// @version      8.6.2
 // @description  SIM SLA guard. Reparación de enlaces azules (Short ID/Title), omisión de bots y candado anti-trabado.
 // @match        https://*.corp.amazon.com/*
 // @match        https://t.corp.amazon.com/*
@@ -29,7 +29,7 @@
     WARN_MIN: 10,
     CRIT_MIN: 13,
     REFRESH_MS: 6000,
-    RELIEF_THRESHOLD: 1,
+    RELIEF_THRESHOLD: 1000,
     AUTO_REPLY_TEXT: "Buen dia team!!\n\nSe revisa",
 
     // 🔴 Aquí ignoramos a tu usuario para que no te genere alerta a ti mismo.
